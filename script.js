@@ -87,7 +87,11 @@ function createStockCard(symbol) {
 }
 
 async function updateStock(symbol) {
-    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    // Get API key from config or fallback to input field (for backwards compatibility)
+    const apiKey = (typeof API_CONFIG !== 'undefined' && API_CONFIG.ALPHA_VANTAGE_API_KEY && API_CONFIG.ALPHA_VANTAGE_API_KEY !== 'YOUR_API_KEY_HERE') 
+        ? API_CONFIG.ALPHA_VANTAGE_API_KEY 
+        : (document.getElementById('apiKeyInput') ? document.getElementById('apiKeyInput').value.trim() : '');
+    
     let stockData;
     
     if (apiKey) {
@@ -97,8 +101,9 @@ async function updateStock(symbol) {
             console.warn(`Failed to fetch real data for ${symbol}. Using demo data.`);
         }
     } else {
-        // Use demo data
+        // Use demo data if no API key configured
         stockData = getDemoStockData(symbol);
+        console.log('No API key configured. Using demo data.');
     }
     
     if (stockData) {

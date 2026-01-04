@@ -3,6 +3,9 @@ node_modules/
 .env
 *.log
 
+# Keep config.js in git but users can modify it
+# config.js
+
 
 # Local Netlify folder
 .netlify
