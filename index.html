@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trippy Stock Ticker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="trippy-overlay"></div>
+    <div class="warp-layer"></div>
+    <div class="container">
+        <header>
+            <h1 class="title">TRIPPY STOCK TICKER</h1>
+            <div class="subtitle">Real-time market data with a twist</div>
+        </header>
+
+        <div class="controls">
+            <input type="text" id="symbolInput" placeholder="Enter stock symbol (e.g., AAPL, TSLA)" />
+            <button id="addStockBtn">Add Stock</button>
+            <button id="clearBtn">Clear All</button>
+            <label class="api-key-label">
+                <span>API Key:</span>
+                <input type="text" id="apiKeyInput" placeholder="Enter Alpha Vantage API key (optional)" />
+            </label>
+        </div>
+
+        <div class="ticker-container">
+            <div id="stockList" class="stock-list"></div>
+        </div>
+
+        <div class="info">
+            <p>Get a free API key at <a href="https://www.alphavantage.co/support/#api-key" target="_blank">alphavantage.co</a></p>
+            <p>Works without API key with limited demo data</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
