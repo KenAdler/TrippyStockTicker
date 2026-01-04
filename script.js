@@ -92,6 +92,10 @@ async function updateStock(symbol) {
     
     if (apiKey) {
         stockData = await fetchStockData(symbol, apiKey);
+        // If API failed but we have an API key, show a warning
+        if (stockData && !stockData.isReal) {
+            console.warn(`Failed to fetch real data for ${symbol}. Using demo data.`);
+        }
     } else {
         // Use demo data
         stockData = getDemoStockData(symbol);
@@ -107,23 +111,20 @@ async function fetchStockData(symbol, apiKey) {
         // Using Alpha Vantage API
         const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
         
-        // Note: Alpha Vantage has CORS restrictions, so we'll use a proxy
-        // For production, you'd want to set up your own backend proxy
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        
-        const response = await fetch(proxyUrl);
-        const data = await response.json();
-        
-        if (data.contents) {
-            const quote = JSON.parse(data.contents);
+        // Try direct fetch first (may work in some browsers/configurations)
+        let response;
+        try {
+            response = await fetch(url);
+            const quote = await response.json();
             
             if (quote['Error Message']) {
                 throw new Error(quote['Error Message']);
             }
             
             if (quote['Note']) {
-                // API call frequency limit
-                return getDemoStockData(symbol);
+                // API call frequency limit - free tier allows 5 calls/min, 500/day
+                console.warn('API rate limit reached. Using demo data.');
+                return { ...getDemoStockData(symbol), isReal: false, error: 'Rate limit' };
             }
             
             const quoteData = quote['Global Quote'];
@@ -133,15 +134,45 @@ async function fetchStockData(symbol, apiKey) {
                 const changePercent = parseFloat(quoteData['10. change percent'].replace('%', ''));
                 const volume = parseInt(quoteData['06. volume']);
                 
-                return { price, change, changePercent, volume };
+                return { price, change, changePercent, volume, isReal: true };
+            }
+        } catch (directError) {
+            // If direct fetch fails (CORS), try proxy
+            console.log('Direct fetch failed, trying CORS proxy...');
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (data.contents) {
+                const quote = JSON.parse(data.contents);
+                
+                if (quote['Error Message']) {
+                    throw new Error(quote['Error Message']);
+                }
+                
+                if (quote['Note']) {
+                    console.warn('API rate limit reached. Using demo data.');
+                    return { ...getDemoStockData(symbol), isReal: false, error: 'Rate limit' };
+                }
+                
+                const quoteData = quote['Global Quote'];
+                if (quoteData && quoteData['05. price']) {
+                    const price = parseFloat(quoteData['05. price']);
+                    const change = parseFloat(quoteData['09. change']);
+                    const changePercent = parseFloat(quoteData['10. change percent'].replace('%', ''));
+                    const volume = parseInt(quoteData['06. volume']);
+                    
+                    return { price, change, changePercent, volume, isReal: true };
+                }
             }
         }
         
         // Fallback to demo data if API fails
-        return getDemoStockData(symbol);
+        console.warn('API fetch failed, using demo data');
+        return { ...getDemoStockData(symbol), isReal: false };
     } catch (error) {
         console.error('Error fetching stock data:', error);
-        return getDemoStockData(symbol);
+        return { ...getDemoStockData(symbol), isReal: false, error: error.message };
     }
 }
 
@@ -161,7 +192,8 @@ function getDemoStockData(symbol) {
             price: price,
             change: change,
             changePercent: changePercent,
-            volume: base.volume + Math.floor(Math.random() * 1000000)
+            volume: base.volume + Math.floor(Math.random() * 1000000),
+            isReal: false
         };
     } else {
         // Generate random demo data for unknown symbols
@@ -174,7 +206,8 @@ function getDemoStockData(symbol) {
             price: price,
             change: change,
             changePercent: changePercent,
-            volume: Math.floor(Math.random() * 50000000)
+            volume: Math.floor(Math.random() * 50000000),
+            isReal: false
         };
     }
 }
@@ -213,6 +246,25 @@ function updateStockDisplay(symbol, data) {
     
     // Update volume
     volumeEl.textContent = `Volume: ${formatNumber(data.volume)}`;
+    
+    // Show data source indicator
+    if (data.isReal !== undefined) {
+        const card = document.getElementById(`stock-${symbol}`);
+        if (data.isReal) {
+            card.setAttribute('data-source', 'real');
+            if (!card.querySelector('.data-badge')) {
+                const badge = document.createElement('div');
+                badge.className = 'data-badge real';
+                badge.textContent = 'LIVE';
+                badge.style.cssText = 'position: absolute; top: 10px; right: 10px; background: #00ff00; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;';
+                card.appendChild(badge);
+            }
+        } else {
+            card.setAttribute('data-source', 'demo');
+            const existingBadge = card.querySelector('.data-badge');
+            if (existingBadge) existingBadge.remove();
+        }
+    }
     
     // Store previous price for next update
     stockInfo.previousPrice = previousPrice || data.price;
